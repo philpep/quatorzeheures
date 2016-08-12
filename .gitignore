@@ -1,0 +1,9 @@
+AUTHORS
+ChangeLog
+*.swp
+*.pyc
+*.egg-info
+*.egg/
+__pycache__
+.tox
+.cache
