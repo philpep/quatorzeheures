@@ -1,6 +1,11 @@
 Quatorze Heures
 ===============
 
+.. image:: https://travis-ci.org/philpep/quatorzeheures.svg?branch=master
+   :target: https://travis-ci.org/philpep/quatorzeheures
+   :alt: Build status
+
+
 A mono-directional `MIDI <https://en.wikipedia.org/wiki/MIDI>`_ to `OSC
 <http://opensoundcontrol.org>`_ gateway.
 
