@@ -21,10 +21,12 @@ import time
 
 if sys.version_info[0] == 2:
     import Queue
-    text_type = unicode
+    text_type = unicode  # noqa
+    string_types = basestring  # noqa
 else:
     import queue as Queue
     text_type = str
+    string_types = (str, bytes)
 
 # Interval in seconds to discover new midi devices
 MIDI_CHECK_INTERVAL = 2
@@ -41,7 +43,7 @@ def complete_osc(s):
 
 
 def osc_string(s):
-    if isinstance(s, unicode):
+    if isinstance(s, text_type):
         s = s.encode()
     return complete_osc(s + b'\x00')
 
@@ -57,7 +59,7 @@ def pack_osc(url, *params):
         elif isinstance(val, int):
             param_string += b'i'
             values_string += struct.pack('>i', val)
-        elif isinstance(val, basestring):
+        elif isinstance(val, string_types):
             param_string += b's'
             values_string += osc_string(val)
     return msg + complete_osc(param_string) + values_string
