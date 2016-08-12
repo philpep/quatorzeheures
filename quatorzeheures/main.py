@@ -150,6 +150,7 @@ def main():
     else:
         host, port = "localhost", 1214
 
+    logger.info("stream OSC to udp://%s:%d", host, port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     reader = MultiMidiReader()
     while True:
