@@ -36,10 +36,14 @@ def normalize_url(name):
     return name.replace(" ", "_")
 
 
+def complete_osc(s):
+    return s + (len(s) % 4) * b'\x00'
+
+
 def osc_string(s):
     if isinstance(s, unicode):
         s = s.encode()
-    return s + (((len(s) + 1) % 4) + 1) * b'\x00'
+    return complete_osc(s + b'\x00')
 
 
 def pack_osc(url, *params):
@@ -56,7 +60,7 @@ def pack_osc(url, *params):
         elif isinstance(val, basestring):
             param_string += b's'
             values_string += osc_string(val)
-    return msg + osc_string(param_string) + values_string
+    return msg + complete_osc(param_string) + values_string
 
 
 class MidiReader(object):
