@@ -12,21 +12,24 @@
 # limitations under the License.
 
 import logging
-import multiprocessing
-import os
-import signal
 import socket
 import struct
+import subprocess
 import sys
 import threading
 import time
 
-import mido
-from mido.ports import multi_receive
+if sys.version_info[0] == 2:
+    import Queue
+    text_type = unicode
+else:
+    import queue as Queue
+    text_type = str
+
+# Interval in seconds to discover new midi devices
+MIDI_CHECK_INTERVAL = 2
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_PORT = 'Midi Through Port-0'
 
 
 def normalize_url(name):
@@ -34,6 +37,8 @@ def normalize_url(name):
 
 
 def osc_string(s):
+    if isinstance(s, unicode):
+        s = s.encode()
     return s + (((len(s) + 1) % 4) + 1) * b'\x00'
 
 
@@ -54,103 +59,103 @@ def pack_osc(url, *params):
     return msg + osc_string(param_string) + values_string
 
 
-def get_input_names():
-    return set(mido.get_input_names()) - set([DEFAULT_PORT])
+class MidiReader(object):
 
+    def __init__(self, name):
+        self.name = name
+        self.buf = bytes()
+        self.proc = None
+        self.thread = None
+        super(MidiReader, self).__init__()
 
-class MidiMonitor(multiprocessing.Process):
-
-    def __init__(self):
-        self.changed = multiprocessing.Event()
-        super(MidiMonitor, self).__init__()
+    def start(self, port, queue):
+        self.proc = subprocess.Popen(["amidi", "--port", port, "--dump"],
+                                     stdout=subprocess.PIPE)
+        self.thread = threading.Thread(target=self.enqueue_stdout,
+                                       args=(self.name, self.proc.stdout,
+                                             queue))
+        self.thread.daemon = True
+        self.thread.start()
 
     @staticmethod
-    def check_parent():
-        pid = os.getpid()
-        while True:
-            if os.getppid() == 1:
-                os.kill(pid, signal.SIGKILL)
-            time.sleep(1)
+    def enqueue_stdout(name, stdout, queue):
+        for line in iter(stdout.readline, b''):
+            queue.put((name, line))
+        queue.put((name, None))
 
-    def run(self):
-        t = threading.Thread(target=self.check_parent)
-        t.daemon = True
-        t.start()
-        current = get_input_names()
-        while True:
-            time.sleep(1)
-            names = get_input_names()
-            if current != names:
-                logger.info("input changed %s -> %s", ",".join(current), ",".join(names))
-                self.changed.set()
-                current = names
+    def stop(self):
+        self.proc.communicate()
+        self.thread.join()
 
 
-class QuatorzeHeures(object):
+class MultiMidiReader(object):
 
-    def __init__(self, host="localhost", port=1214):
-        self.monitor = MidiMonitor()
-        self.ports = []
-        self.names = []
-        logger.info("send OSC stream to %s:%d", host, port)
-        super(QuatorzeHeures, self).__init__()
+    def __init__(self):
+        self.readers = {}
+        self.queue = Queue.Queue()
+        self.last_check = None
+        super(MultiMidiReader, self).__init__()
 
-    def run(self):
-        self.monitor.start()
-        self.reset()
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        while True:
-            if self.monitor.changed.is_set():
-                self.monitor.changed.clear()
-                self.reset()
+    @staticmethod
+    def list_devices():
+        out = subprocess.check_output(["amidi", "--list-devices"])
+        # Dir Device    Name
+        # IO  hw:2,0,0  Akai MPD18 MIDI 1
+        for line in out.splitlines()[1:]:
+            _, port, name = line.split(None, 2)
+            port = port.split(",", 1)[0]
+            yield name, port
 
-            try:
-                for port, message in multi_receive(
-                    self.ports, yield_ports=True, block=False
-                ):
-                    msg = pack_osc(
-                        "/midi/{0}".format(normalize_url(port.name)),
-                        *message.bytes())
-                    logger.info(
-                        "%s %s %s --> %s",
-                        port, message, message.bytes(), repr(msg))
-                    sock.sendto(msg, ("localhost", 9999))
-            except IOError:
-                pass
+    def get_message(self):
+        if (self.last_check is None or
+           abs(self.last_check - time.time()) > MIDI_CHECK_INTERVAL):
+            self.start()
 
-            time.sleep(.1)
+        try:
+            name, line = self.queue.get(False)
+        except Queue.Empty:
+            return
 
-    def reset(self):
-        while True:
-            logger.info("reset ports")
-            try:
-                for port in self.ports:
-                    try:
-                        port.close()
-                    except IOError:
-                        pass
-                time.sleep(.1)
-                self.ports = []
-                for name in get_input_names():
-                    self.ports.append(mido.open_input(name))
-                    logger.info("listen to %s", name)
-            except IOError:
-                time.sleep(1)
-            else:
-                break
+        if line is None:
+            # Process terminated
+            logger.info("disconnect %s", name)
+            self.readers[name].stop()
+            del self.readers[name]
+        else:
+            midi_bytes = [int(b, 16) for b in line.strip().split()]
+            if midi_bytes:
+                return name, midi_bytes
+
+    def start(self):
+        for name, port in self.list_devices():
+            if name not in self.readers:
+                logger.info("connect %s on port %s", name, port)
+                self.readers[name] = MidiReader(name)
+                self.readers[name].start(port, self.queue)
+        self.last_check = time.time()
 
 
 def main():
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter(fmt="%(asctime)-15s %(message)s"))
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     if len(sys.argv) > 1:
         host, port = sys.argv[1].split(":")
         port = int(port)
-        QuatorzeHeures(host, port).run()
     else:
-        QuatorzeHeures().run()
+        host, port = "localhost", 1214
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    reader = MultiMidiReader()
+    while True:
+        message = reader.get_message()
+        if message is not None:
+            name, midi = message
+            osc_message = pack_osc("/midi/{0}".format(normalize_url(name)),
+                                   *midi)
+            logger.info("%s %s --> %s", name, midi, repr(osc_message))
+            sock.sendto(osc_message, (host, port))
 
 if __name__ == "__main__":
     main()
