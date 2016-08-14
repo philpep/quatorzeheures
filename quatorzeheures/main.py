@@ -118,7 +118,7 @@ class MultiMidiReader(object):
             self.start()
 
         try:
-            name, line = self.queue.get(False)
+            name, line = self.queue.get(True, 1)
         except Queue.Empty:
             return
 
