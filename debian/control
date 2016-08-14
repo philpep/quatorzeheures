@@ -1,0 +1,23 @@
+Source: quatorzeheures
+Maintainer: Philippe Pepiot <phil@philpep.org>
+Section: python
+Priority: optional
+Build-Depends:
+    debhelper (>= 9),
+    python-all,
+    python-setuptools,
+    python-pbr,
+    dh-systemd (>= 1.5),
+Homepage: https://github.com/philpep/quatorzeheures
+Vcs-Browser: https://github.com/philpep/quatorzeheures
+Vcs-Git: git://github.com/philpep/quatorzeheures
+Standards-Version: 3.9.6
+
+Package: quatorzeheures
+Architecture: all
+Depends:
+    alsa-utils,
+    ${misc:Depends},
+    ${python:Depends}
+Recommends: ${python:Recommends}
+Description: A MIDI to OSC gateway

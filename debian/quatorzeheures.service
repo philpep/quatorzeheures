@@ -1,0 +1,14 @@
+[Unit]
+Description=A MIDI to OSC gateway
+
+[Service]
+EnvironmentFile=-/etc/default/quatorzeheures
+User=quatorzeheures
+ExecStart=/usr/bin/quatorzeheures ${HOST}
+StandardOutput=null
+StandardError=journal
+RestartSec=5
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

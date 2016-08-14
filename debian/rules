@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+PYTHONS:=$(shell pyversions -vr)
+
+DEBVERS ?= $(shell dpkg-parsechangelog | sed -n -e 's/^Version: //p')
+VERSION ?= $(shell echo '$(DEBVERS)' | sed -e 's/^[[:digit:]]*://' -e 's/[-].*//')
+export PBR_VERSION=$(VERSION)
+
+%:
+	dh $@ --buildsystem=python_distutils --with python2,systemd
+
+
+override_dh_auto_install:
+	set -e && for pyvers in $(PYTHONS); do \
+		python$$pyvers setup.py install --install-layout=deb \
+			--root $(CURDIR)/debian/quatorzeheures; \
+	done
+	mkdir -p $(CURDIR)/debian/quatorzeheures/etc/default
+	cp debian/quatorzeheures.default $(CURDIR)/debian/quatorzeheures/etc/default/quatorzeheures
