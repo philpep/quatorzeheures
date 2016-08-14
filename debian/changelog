@@ -1,3 +1,9 @@
+quatorzeheures (0.1.1-1) unstable; urgency=medium
+
+  * Avoid 100% cpu usage
+
+ -- Philippe Pepiot <phil@philpep.org>  Sun, 14 Aug 2016 21:06:44 +0200
+
 quatorzeheures (0.1.0-1) unstable; urgency=medium
 
   * Initial debianization
