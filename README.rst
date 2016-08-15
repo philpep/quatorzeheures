@@ -43,8 +43,9 @@ Debian jessie package
 ~~~~~~~~~~~~~~~~~~~~~
 
 Debian packaging is done in the `debian/unstable branch
-</tree/debian/unstable>`_ and available in my jessie-backports repository (for
-i386, amd64 and armhf architectures)::
+<https://github.com/philpep/quatorzeheures/tree/debian/unstable>`_ and
+available in my jessie-backports repository (for i386, amd64 and armhf
+architectures)::
 
     wget -q -O - http://apt.philpep.org/951808A4.asc | sudo apt-key add -
     echo "deb http://apt.philpep.org jessie-backports main" | sudo tee /etc/apt/sources.list.d/philpep.list
