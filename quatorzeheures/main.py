@@ -85,8 +85,16 @@ class MidiReader(object):
 
     @staticmethod
     def enqueue_stdout(name, stdout, queue):
-        for line in iter(stdout.readline, b''):
-            queue.put((name, line))
+        # amidi --dump doesn't end line with '\n' but start with '\n'...
+        buf = b""
+        while True:
+            c = stdout.read(1)
+            if not c:
+                break
+            buf += c
+            if len(buf.strip()) == 8:
+                queue.put((name, buf))
+                buf = b''
         queue.put((name, None))
 
     def stop(self):
@@ -128,8 +136,11 @@ class MultiMidiReader(object):
             self.readers[name].stop()
             del self.readers[name]
         else:
-            midi_bytes = [int(b, 16) for b in line.strip().split()]
-            if midi_bytes:
+            try:
+                midi_bytes = [int(b, 16) for b in line.strip().split()]
+            except ValueError:
+                logger.info("doesn't seems to be midi data: %s", repr(line))
+            else:
                 return name, midi_bytes
 
     def start(self):
