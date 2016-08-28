@@ -1,3 +1,9 @@
+quatorzeheures (0.1.2-1) unstable; urgency=medium
+
+  * Fix message latency
+
+ -- Philippe Pepiot <phil@philpep.org>  Sun, 28 Aug 2016 22:10:29 +0200
+
 quatorzeheures (0.1.1-1) unstable; urgency=medium
 
   * Avoid 100% cpu usage
